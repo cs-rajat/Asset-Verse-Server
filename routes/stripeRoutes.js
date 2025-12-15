@@ -39,7 +39,7 @@ router.post("/create-session", verifyToken, async (req, res) => {
     res.send({ url: session.url });
   } catch (err) {
     console.error("Create session error:", err);
-    res.status(500).send({ msg: "Payment session creation failed" });
+    res.status(500).send({ msg: err.message || "Payment session creation failed" });
   }
 });
 
