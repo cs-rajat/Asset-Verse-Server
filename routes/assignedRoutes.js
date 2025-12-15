@@ -38,6 +38,57 @@ router.get("/", verifyToken, async (req, res) => {
   }
 });
 
+// Direct Assignment (HR only)
+router.post("/", verifyToken, verifyHR, async (req, res) => {
+  try {
+    const { employeeEmail, assetId, notes } = req.body;
+
+    const asset = await db.collection("assets").findOne({ _id: new ObjectId(assetId) });
+    if (!asset) return res.status(404).send({ msg: "Asset not found" });
+    if (asset.hrEmail !== req.user.email) return res.status(403).send({ msg: "Not authorized for this asset" });
+
+    if (asset.availableQuantity < 1) {
+      return res.status(400).send({ msg: "Asset out of stock" });
+    }
+
+    // Verify employee affiliation
+    const affiliation = await db.collection("employeeAffiliations").findOne({
+      employeeEmail,
+      hrEmail: req.user.email,
+      status: "active"
+    });
+
+    if (!affiliation) return res.status(400).send({ msg: "Employee not affiliated with your company" });
+
+    // Decrease asset availability
+    await db.collection("assets").updateOne(
+      { _id: asset._id },
+      { $inc: { availableQuantity: -1 } }
+    );
+
+    // Create assigned asset record
+    await db.collection("assignedAssets").insertOne({
+      assetId: asset._id,
+      assetName: asset.productName,
+      assetImage: asset.productImage || "",
+      assetType: asset.productType,
+      employeeEmail,
+      employeeName: affiliation.employeeName || "Employee",
+      hrEmail: req.user.email,
+      companyName: asset.companyName,
+      assignmentDate: new Date(),
+      status: "assigned",
+      notes: notes || "Directly assigned by HR"
+    });
+
+    res.status(201).send({ message: "Asset assigned successfully" });
+
+  } catch (err) {
+    console.error("Direct assignment error:", err);
+    res.status(500).send({ msg: "Server error" });
+  }
+});
+
 // Return asset (Optional feature)
 router.patch("/return/:id", verifyToken, async (req, res) => {
   try {
