@@ -63,6 +63,18 @@ router.get("/", verifyToken, async (req, res) => {
   }
 });
 
+// Get single asset
+router.get("/:id", verifyToken, async (req, res) => {
+  try {
+    const asset = await db.collection("assets").findOne({ _id: new ObjectId(req.params.id) });
+    if (!asset) return res.status(404).send({ msg: "Asset not found" });
+    res.send(asset);
+  } catch (err) {
+    console.error("Get asset error:", err);
+    res.status(500).send({ msg: "Server error" });
+  }
+});
+
 // Update asset (HR only)
 router.put("/:id", verifyToken, verifyHR, async (req, res) => {
   try {
