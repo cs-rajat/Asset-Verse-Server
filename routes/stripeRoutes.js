@@ -77,4 +77,18 @@ router.post("/payment-success", verifyToken, async (req, res) => {
   }
 });
 
+// Get Payment History
+router.get("/history", verifyToken, async (req, res) => {
+  try {
+    const history = await db.collection("payments")
+      .find({ hrEmail: req.user.email })
+      .sort({ paymentDate: -1 })
+      .toArray();
+    res.send(history);
+  } catch (err) {
+    console.error("Get payment history error:", err);
+    res.status(500).send({ msg: "Server error" });
+  }
+});
+
 export default router;

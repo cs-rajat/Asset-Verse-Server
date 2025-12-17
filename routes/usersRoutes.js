@@ -75,7 +75,7 @@ router.get("/affiliations", verifyToken, async (req, res) => {
   }
 });
 
-// Get HR's employee list
+// Get HR's employee list with asset counts
 router.get("/employees", verifyToken, async (req, res) => {
   try {
     if (req.user.role !== "hr") {
@@ -86,9 +86,83 @@ router.get("/employees", verifyToken, async (req, res) => {
       .find({ hrEmail: req.user.email, status: "active" })
       .toArray();
 
-    res.send(affiliations);
+    // Enrich with asset count and profile image from users collection
+    const enrichedAffiliations = await Promise.all(affiliations.map(async (aff) => {
+      const assignedCount = await db.collection("assignedAssets").countDocuments({
+        employeeEmail: aff.employeeEmail,
+        hrEmail: req.user.email,
+        status: "assigned"
+      });
+
+      // Also fetch the actual user to get the latest profile image if needed
+      const user = await db.collection("users").findOne({ email: aff.employeeEmail });
+
+      return {
+        ...aff,
+        assetsCount: assignedCount,
+        profileImage: user?.profileImage || aff.companyLogo || "", // Fallback logic
+        joinDate: aff.affiliationDate
+      };
+    }));
+
+    res.send(enrichedAffiliations);
   } catch (err) {
     console.error("Get employees error:", err);
+    res.status(500).send({ msg: "Server error" });
+  }
+});
+
+// Remove employee from team
+router.delete("/affiliations/:id", verifyToken, verifyHR, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Find affiliation
+    const affiliation = await db.collection("employeeAffiliations").findOne({
+      _id: new ObjectId(id),
+      hrEmail: req.user.email
+    });
+
+    if (!affiliation) return res.status(404).send({ msg: "Employee not found in your team" });
+
+    // Delete affiliation
+    await db.collection("employeeAffiliations").deleteOne({ _id: new ObjectId(id) });
+
+    // Decrement employee count for HR
+    await db.collection("users").updateOne(
+      { email: req.user.email },
+      { $inc: { currentEmployees: -1 } }
+    );
+
+    // Optional: Return all assigned assets to inventory? 
+    // For now, let's keep it simple: we just remove them from the team list.
+    // In a real app, we might want to mark assets as 'returned' or 'lost'.
+    // Let's implement auto-return logic for safety.
+    const assignedAssets = await db.collection("assignedAssets").find({
+      employeeEmail: affiliation.employeeEmail,
+      hrEmail: req.user.email,
+      status: "assigned"
+    }).toArray();
+
+    if (assignedAssets.length > 0) {
+      for (const assetAssign of assignedAssets) {
+        // Return to inventory
+        await db.collection("assets").updateOne(
+          { _id: assetAssign.assetId },
+          { $inc: { availableQuantity: 1 } }
+        );
+
+        // Update assignment status
+        await db.collection("assignedAssets").updateOne(
+          { _id: assetAssign._id },
+          { $set: { status: "returned", returnDate: new Date() } }
+        );
+      }
+    }
+
+    res.send({ message: "Employee removed and assets returned" });
+  } catch (err) {
+    console.error("Remove employee error:", err);
     res.status(500).send({ msg: "Server error" });
   }
 });
@@ -114,7 +188,17 @@ router.get("/team/:companyName", verifyToken, async (req, res) => {
       .find({ companyName, status: "active" })
       .toArray();
 
-    res.send(teammates);
+    // Enrich with user details (DOB, Profile Image)
+    const enrichedTeammates = await Promise.all(teammates.map(async (mate) => {
+      const user = await db.collection("users").findOne({ email: mate.employeeEmail });
+      return {
+        ...mate,
+        dateOfBirth: user?.dateOfBirth || null,
+        profileImage: user?.profileImage || mate.companyLogo || ""
+      };
+    }));
+
+    res.send(enrichedTeammates);
   } catch (err) {
     console.error("Get team error:", err);
     res.status(500).send({ msg: "Server error" });

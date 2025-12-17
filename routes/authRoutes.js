@@ -103,6 +103,30 @@ router.post("/login", async (req, res) => {
 });
 
 // JWT token generation (for compatibility)
+// Google Login Check
+router.post("/google-login", async (req, res) => {
+  try {
+    const { email } = req.body;
+    const user = await db.collection("users").findOne({ email });
+
+    if (user) {
+      // User exists - Login
+      const token = jwt.sign(
+        { email: user.email, role: user.role, name: user.name },
+        process.env.JWT_SECRET,
+        { expiresIn: "7d" }
+      );
+      return res.send({ token, user: { ...user, password: undefined } });
+    } else {
+      // User does not exist - Prompt for Role
+      return res.send({ isNewUser: true });
+    }
+  } catch (err) {
+    console.error("Google Login Error:", err);
+    res.status(500).send({ msg: "Server Error" });
+  }
+});
+
 // JWT token generation (Secure: looks up user)
 router.post("/jwt", async (req, res) => {
   try {
