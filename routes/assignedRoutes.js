@@ -1,6 +1,7 @@
 import express from "express";
 import { db } from "../config/db.js";
 import { verifyToken } from "../middlewares/verifyToken.js";
+import { verifyHR } from "../middlewares/verifyHR.js";
 import { ObjectId } from "mongodb";
 
 const router = express.Router();
@@ -42,6 +43,9 @@ router.get("/", verifyToken, async (req, res) => {
 router.post("/", verifyToken, verifyHR, async (req, res) => {
   try {
     const { employeeEmail, assetId, notes } = req.body;
+    console.log("Direct Assignment Payload:", req.body);
+
+    if (!assetId) return res.status(400).send({ msg: "Missing Asset ID" });
 
     const asset = await db.collection("assets").findOne({ _id: new ObjectId(assetId) });
     if (!asset) return res.status(404).send({ msg: "Asset not found" });

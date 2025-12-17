@@ -9,6 +9,12 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Request logger
+app.use((req, res, next) => {
+  console.log(`[${req.method}] ${req.url}`);
+  next();
+});
+
 app.get("/", (req, res) => res.send("AssetVerse Server Running"));
 
 // Connect to MongoDB first, then import and use routes
