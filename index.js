@@ -28,6 +28,7 @@ connectDB().then(async () => {
   const { default: paymentsRoutes } = await import("./routes/stripeRoutes.js");
   const { default: assignedRoutes } = await import("./routes/assignedRoutes.js");
   const { default: publicRoutes } = await import("./routes/publicRoutes.js");
+  const { default: noticeRoutes } = await import("./routes/noticeRoutes.js");
 
   // Use routes
   app.use("/api/auth", authRoutes);
@@ -38,6 +39,7 @@ connectDB().then(async () => {
   app.use("/api/stripe", paymentsRoutes);
   app.use("/api/assigned", assignedRoutes);
   app.use("/api/public", publicRoutes);
+  app.use("/api/notices", noticeRoutes);
 
   // Start server after routes are set up
   app.listen(process.env.PORT, () =>

@@ -1,9 +1,8 @@
 import express from "express";
-import { db } from "../config/db.js";
 
 const router = express.Router();
 
-const predefinedPackages = [
+const PACKAGES = [
     {
         name: "Basic",
         employeeLimit: 5,
@@ -24,30 +23,9 @@ const predefinedPackages = [
     }
 ];
 
-// Seed packages if empty
-const seedPackages = async () => {
-    try {
-        const count = await db.collection("packages").countDocuments();
-        if (count === 0) {
-            await db.collection("packages").insertMany(predefinedPackages);
-            console.log("✅ Packages seeded successfully");
-        }
-    } catch (err) {
-        console.error("❌ Failed to seed packages:", err);
-    }
-};
-
-// Run seed on init
-seedPackages();
-
-router.get("/packages", async (req, res) => {
-    try {
-        const packages = await db.collection("packages").find().toArray();
-        res.send(packages);
-    } catch (err) {
-        console.error("Get packages error:", err);
-        res.status(500).send({ msg: "Server error" });
-    }
+// Get public packages
+router.get("/packages", (req, res) => {
+    res.send(PACKAGES);
 });
 
 export default router;

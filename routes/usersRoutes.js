@@ -44,6 +44,7 @@ router.get("/me", verifyToken, async (req, res) => {
 router.patch("/me", verifyToken, async (req, res) => {
   try {
     const { name, profileImage, dateOfBirth, companyLogo } = req.body;
+    console.log("Profile Update Request:", req.user.email, req.body); // Debug Log
     const updateData = {};
 
     if (name) updateData.name = name;
