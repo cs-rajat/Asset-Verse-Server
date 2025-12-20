@@ -2,6 +2,7 @@ import express from "express";
 import { db } from "../config/db.js";
 import { verifyToken } from "../middlewares/verifyToken.js";
 import { verifyHR } from "../middlewares/verifyHR.js";
+import { ObjectId } from "mongodb";
 
 const router = express.Router();
 
@@ -43,7 +44,7 @@ router.get("/me", verifyToken, async (req, res) => {
 // Update user profile
 router.patch("/me", verifyToken, async (req, res) => {
   try {
-    const { name, profileImage, dateOfBirth, companyLogo } = req.body;
+    const { name, email, profileImage, dateOfBirth, companyLogo } = req.body;
     console.log("Profile Update Request:", req.user.email, req.body); // Debug Log
     const updateData = {};
 
@@ -52,12 +53,37 @@ router.patch("/me", verifyToken, async (req, res) => {
     if (dateOfBirth) updateData.dateOfBirth = new Date(dateOfBirth);
     if (companyLogo && req.user.role === "hr") updateData.companyLogo = companyLogo;
 
+    // Check if email is being changed
+    if (email && email !== req.user.email) {
+      // Check if new email already exists
+      const existingUser = await db.collection("users").findOne({ email: email });
+      if (existingUser) {
+        return res.status(400).send({ msg: "Email already in use" });
+      }
+      updateData.email = email;
+
+      // Update email in affiliations if user is HR
+      if (req.user.role === "hr") {
+        await db.collection("employeeAffiliations").updateMany(
+          { hrEmail: req.user.email },
+          { $set: { hrEmail: email } }
+        );
+      }
+      // Update email in affiliations if user is employee
+      if (req.user.role === "employee") {
+        await db.collection("employeeAffiliations").updateMany(
+          { employeeEmail: req.user.email },
+          { $set: { employeeEmail: email } }
+        );
+      }
+    }
+
     await db.collection("users").updateOne(
       { email: req.user.email },
       { $set: updateData }
     );
 
-    res.send({ message: "Profile updated successfully" });
+    res.send({ message: "Profile updated successfully", newEmail: updateData.email });
   } catch (err) {
     console.error("Update user error:", err);
     res.status(500).send({ msg: "Server error" });
@@ -117,6 +143,7 @@ router.get("/employees", verifyToken, async (req, res) => {
 // Remove employee from team
 router.delete("/affiliations/:id", verifyToken, verifyHR, async (req, res) => {
   try {
+    console.log("🗑️ Delete Employee Request:", { id: req.params.id, hrEmail: req.user.email });
     const { id } = req.params;
 
     // Find affiliation
@@ -125,7 +152,12 @@ router.delete("/affiliations/:id", verifyToken, verifyHR, async (req, res) => {
       hrEmail: req.user.email
     });
 
-    if (!affiliation) return res.status(404).send({ msg: "Employee not found in your team" });
+    console.log("📋 Affiliation Found:", affiliation);
+
+    if (!affiliation) {
+      console.log("❌ Affiliation not found");
+      return res.status(404).send({ msg: "Employee not found in your team" });
+    }
 
     // Delete affiliation
     await db.collection("employeeAffiliations").deleteOne({ _id: new ObjectId(id) });
@@ -162,10 +194,11 @@ router.delete("/affiliations/:id", verifyToken, verifyHR, async (req, res) => {
       }
     }
 
+    console.log("✅ Employee removed successfully");
     res.send({ message: "Employee removed and assets returned" });
   } catch (err) {
-    console.error("Remove employee error:", err);
-    res.status(500).send({ msg: "Server error" });
+    console.error("❌ Remove employee error:", err);
+    res.status(500).send({ msg: "Server error", error: err.message });
   }
 });
 

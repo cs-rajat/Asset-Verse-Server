@@ -9,8 +9,9 @@ const router = express.Router();
 // Create request
 router.post("/", verifyToken, async (req, res) => {
   try {
+    console.log("Create Request Payload:", req.body);
     const { assetId, note } = req.body;
-    
+
     const asset = await db.collection("assets").findOne({ _id: new ObjectId(assetId) });
     if (!asset) return res.status(404).send({ msg: "Asset not found" });
 
@@ -26,7 +27,7 @@ router.post("/", verifyToken, async (req, res) => {
       requestStatus: "pending",
       requestDate: new Date()
     });
-    
+
     res.status(201).send({ message: "Asset requested successfully" });
   } catch (err) {
     console.error("Create request error:", err);
@@ -97,12 +98,12 @@ router.patch("/approve/:id", verifyToken, verifyHR, async (req, res) => {
     // Update request status
     await db.collection("requests").updateOne(
       { _id: request._id },
-      { 
-        $set: { 
-          requestStatus: "approved", 
+      {
+        $set: {
+          requestStatus: "approved",
           approvalDate: new Date(),
           processedBy: req.user.email
-        } 
+        }
       }
     );
 

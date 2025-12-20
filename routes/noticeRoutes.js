@@ -9,6 +9,7 @@ const router = express.Router();
 // Create Notice (HR Only)
 router.post("/", verifyToken, verifyHR, async (req, res) => {
     try {
+        console.log("Creating notice:", req.body, "User:", req.user);
         const { title, description, priority } = req.body;
 
         // Get HR's company details (assuming HR itself is the reference or from affiliations)
@@ -26,9 +27,10 @@ router.post("/", verifyToken, verifyHR, async (req, res) => {
         };
 
         const result = await db.collection("notices").insertOne(notice);
-        res.send(result);
+        res.send({ message: "Notice created successfully", insertedId: result.insertedId });
     } catch (err) {
-        res.status(500).send({ msg: "Server error" });
+        console.error("Notice creation error:", err);
+        res.status(500).send({ msg: "Server error", error: err.message });
     }
 });
 

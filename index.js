@@ -41,6 +41,12 @@ connectDB().then(async () => {
   app.use("/api/public", publicRoutes);
   app.use("/api/notices", noticeRoutes);
 
+  // 404 Handler for undefined routes
+  app.use((req, res) => {
+    console.log(`❌ 404 - Not Found: [${req.method}] ${req.url}`);
+    res.status(404).send({ msg: "Route not found" });
+  });
+
   // Start server after routes are set up
   app.listen(process.env.PORT, () =>
     console.log("✅ Server running on port", process.env.PORT)

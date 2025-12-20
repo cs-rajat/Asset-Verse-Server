@@ -164,11 +164,24 @@ router.patch("/approve-return/:id", verifyToken, verifyHR, async (req, res) => {
 // Get all return requests (HR only)
 router.get("/return-requests", verifyToken, verifyHR, async (req, res) => {
   try {
+    console.log("🔍 Fetching return requests for HR:", req.user.email);
+    
+    // Debug: Check all return_requested items
+    const allReturns = await db.collection("assignedAssets")
+      .find({ status: "return_requested" })
+      .toArray();
+    console.log("📊 Total return_requested items in DB:", allReturns.length);
+    if (allReturns.length > 0) {
+      console.log("Sample return request:", JSON.stringify(allReturns[0], null, 2));
+    }
+    
     const requests = await db.collection("assignedAssets")
       .find({ hrEmail: req.user.email, status: "return_requested" })
       .toArray();
+    console.log("✅ Found return requests for this HR:", requests.length);
     res.send(requests);
   } catch (err) {
+    console.error("❌ Return requests error:", err);
     res.status(500).send({ msg: "Server error" });
   }
 });
