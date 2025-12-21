@@ -38,11 +38,31 @@ router.post("/", verifyToken, async (req, res) => {
 // Get requests for HR
 router.get("/hr", verifyToken, verifyHR, async (req, res) => {
   try {
+    const page = Number(req.query.page || 1);
+    const limit = Number(req.query.limit || 10);
+    const skip = (page - 1) * limit;
+
     const requests = await db.collection("requests")
       .find({ hrEmail: req.user.email, requestStatus: "pending" })
       .sort({ requestDate: -1 })
+      .skip(skip)
+      .limit(limit)
       .toArray();
-    res.send(requests);
+
+    const total = await db.collection("requests").countDocuments({
+      hrEmail: req.user.email,
+      requestStatus: "pending"
+    });
+
+    res.send({
+      requests,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit)
+      }
+    });
   } catch (err) {
     console.error("Get requests error:", err);
     res.status(500).send({ msg: "Server error" });
@@ -123,7 +143,9 @@ router.patch("/approve/:id", verifyToken, verifyHR, async (req, res) => {
       employeeName: request.requesterName,
       hrEmail: req.user.email,
       companyName: request.companyName,
-      assignmentDate: new Date(),
+      requestDate: request.requestDate, // Original request date
+      approvalDate: new Date(), // When it was approved
+      assignmentDate: new Date(), // Same as approval for now
       status: "assigned"
     });
 

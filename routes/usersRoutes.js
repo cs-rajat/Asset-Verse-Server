@@ -110,9 +110,20 @@ router.get("/employees", verifyToken, async (req, res) => {
       return res.status(403).send({ msg: "HR only" });
     }
 
+    const page = Number(req.query.page || 1);
+    const limit = Number(req.query.limit || 10);
+    const skip = (page - 1) * limit;
+
     const affiliations = await db.collection("employeeAffiliations")
       .find({ hrEmail: req.user.email, status: "active" })
+      .skip(skip)
+      .limit(limit)
       .toArray();
+
+    const total = await db.collection("employeeAffiliations").countDocuments({
+      hrEmail: req.user.email,
+      status: "active"
+    });
 
     // Enrich with asset count and profile image from users collection
     const enrichedAffiliations = await Promise.all(affiliations.map(async (aff) => {
@@ -133,7 +144,15 @@ router.get("/employees", verifyToken, async (req, res) => {
       };
     }));
 
-    res.send(enrichedAffiliations);
+    res.send({
+      employees: enrichedAffiliations,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit)
+      }
+    });
   } catch (err) {
     console.error("Get employees error:", err);
     res.status(500).send({ msg: "Server error" });
