@@ -1,6 +1,4 @@
 # 💎 AssetVerse - Backend Server
-
-> **Corporate Asset Management System**  
 > A comprehensive backend API for managing corporate assets, employees, and requests with JWT authentication, role-based access control, and Stripe payment integration.
 
 ## 🌐 Live URL
@@ -268,8 +266,7 @@ This project is licensed under the MIT License.
 
 ## 👨‍💻 Author
 
-**AssetVerse Team**  
-Corporate Asset Management Solution
+**Rajat Mandal**
 
 ---
 

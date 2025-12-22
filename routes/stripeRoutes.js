@@ -7,10 +7,26 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 const router = express.Router();
 
 // Create Checkout Session
+// Create Checkout Session
 router.post("/create-session", verifyToken, async (req, res) => {
   try {
     const { packageName, employeeLimit, amount, hrEmail } = req.body;
     console.log(`Creating Stripe Session: ${packageName} ($${amount})`); // Debug Log
+
+    // Validate and sanitize CLIENT_URL
+    let clientUrl = process.env.CLIENT_URL;
+    if (!clientUrl) {
+      throw new Error("CLIENT_URL environment variable is missing");
+    }
+    // Remove trailing slash if present
+    if (clientUrl.endsWith('/')) {
+      clientUrl = clientUrl.slice(0, -1);
+    }
+    // Ensure protocol is present
+    if (!clientUrl.startsWith('http')) {
+      clientUrl = `https://${clientUrl}`;
+    }
+
     const finalAmount = parseInt(amount);
 
     const session = await stripe.checkout.sessions.create({
@@ -29,8 +45,8 @@ router.post("/create-session", verifyToken, async (req, res) => {
         },
       ],
       mode: "payment",
-      success_url: `${process.env.CLIENT_URL}/payment-success?session_id={CHECKOUT_SESSION_ID}&package=${packageName}&limit=${employeeLimit}`,
-      cancel_url: `${process.env.CLIENT_URL}/upgrade`,
+      success_url: `${clientUrl}/payment-success?session_id={CHECKOUT_SESSION_ID}&package=${packageName}&limit=${employeeLimit}`,
+      cancel_url: `${clientUrl}/upgrade`,
       metadata: {
         hrEmail: hrEmail || req.user.email,
         packageName,
@@ -88,7 +104,7 @@ router.post("/payment-success", verifyToken, async (req, res) => {
         $set: { subscription: newPackage } // Update package name to latest bought
       }
     );
-    
+
     // Get updated user data
     const updatedUser = await db.collection("users").findOne({ email: req.user.email });
     console.log("✅ Database Updated:", {
@@ -99,7 +115,7 @@ router.post("/payment-success", verifyToken, async (req, res) => {
       modifiedCount: updateResult.modifiedCount
     });
 
-    res.send({ 
+    res.send({
       message: "Package upgraded successfully",
       oldLimit: currentUser?.packageLimit,
       newLimit: updatedUser?.packageLimit
